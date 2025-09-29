@@ -26,11 +26,26 @@ export default function PaymentPage() {
   const [expiryDate, setExpiryDate] = useState('');
   const [cvc, setCvc] = useState('');
 
-  const handleMpesaSubmit = (event) => {
-    event.preventDefault();
-    alert(`Initiating M-Pesa payment for ${mpesaPhone}`);
-    // This is where we will call our M-Pesa API endpoint
-  };
+
+const handleMpesaSubmit = async (event) => {
+  event.preventDefault();
+  try {
+    const res = await fetch('http://localhost:5000/api/mpesa', { // Change to your backend endpoint
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: mpesaName,
+        email: mpesaEmail,
+        phone: mpesaPhone,
+      }),
+    });
+    const data = await res.json();
+    alert(data.message || 'Payment initiated!');
+  } catch (err) {
+    alert('Failed to connect to backend.');
+  }
+};
+
 
   const handleCardSubmit = (event) => {
     event.preventDefault();
@@ -76,6 +91,12 @@ export default function PaymentPage() {
                 <input type="tel" id="mpesaPhone" value={mpesaPhone} onChange={(e) => setMpesaPhone(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="254XXXXXXXXX" required />
                 <p className="mt-1 text-xs text-gray-500">Enter your M-Pesa registered phone number (format: 254000000000)</p>
               </div>
+              <button
+                type="submit"
+                className="w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                Pay $300.00 with M-Pesa
+              </button>
             </form>
           </div>
 
