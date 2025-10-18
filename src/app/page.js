@@ -1,10 +1,9 @@
 // src/app/page.js
-
 'use client';
 
 import { useState } from 'react';
 
-// A better SVG icon for the Apple logo to use in the button
+// Apple Pay Icon Component
 const ApplePayIcon = () => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
     <path
@@ -19,50 +18,82 @@ export default function PaymentPage() {
   const [mpesaName, setMpesaName] = useState('');
   const [mpesaEmail, setMpesaEmail] = useState('');
   const [mpesaPhone, setMpesaPhone] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success' or 'error'
 
-  // State for Card form
-  const [cardName, setCardName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvc, setCvc] = useState('');
+  // Payment amount (you can make this dynamic)
+  const PAYMENT_AMOUNT = 300;
 
-
-const handleMpesaSubmit = async (event) => {
-  event.preventDefault();
-  try {
-    const res = await fetch('http://localhost:5000/api/mpesa', { // Change to your backend endpoint
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: mpesaName,
-        email: mpesaEmail,
-        phone: mpesaPhone,
-      }),
-    });
-    const data = await res.json();
-    alert(data.message || 'Payment initiated!');
-  } catch (err) {
-    alert('Failed to connect to backend.');
-  }
-};
-
-
-  const handleCardSubmit = (event) => {
+  const handleMpesaSubmit = async (event) => {
     event.preventDefault();
-    alert(`Submitting card payment...`);
-    // This is where we would call our Stripe API endpoint
+    setIsLoading(true);
+    setMessage('');
+    setMessageType('');
+
+    try {
+      // Validate phone number format
+      const phoneRegex = /^(?:254|0)?[17]\d{8}$/;
+      if (!phoneRegex.test(mpesaPhone.replace(/[\s\-]/g, ''))) {
+        setMessage('Please enter a valid M-Pesa phone number (e.g., 254712345678 or 0712345678)');
+        setMessageType('error');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📱 Initiating M-Pesa payment...');
+      
+      const response = await fetch('/api/initiate-payment', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({
+          name: mpesaName,
+          email: mpesaEmail,
+          phone: mpesaPhone,
+          amount: PAYMENT_AMOUNT,
+        }),
+      });
+
+      const data = await response.json();
+      console.log('📥 Response:', data);
+
+      if (data.success) {
+        setMessage('✅ STK Push sent! Please check your phone and enter your M-Pesa PIN.');
+        setMessageType('success');
+        
+        // Optional: Clear form after successful submission
+        // setMpesaName('');
+        // setMpesaEmail('');
+        // setMpesaPhone('');
+      } else {
+        setMessage(`❌ ${data.message || 'Payment failed. Please try again.'}`);
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('❌ Error:', error);
+      setMessage('❌ Failed to connect to payment server. Please try again.');
+      setMessageType('error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4 font-sans">
       <div className="w-full max-w-lg p-6 space-y-4">
         
-        <h1 className="text-2xl font-semibold text-center text-gray-800">Stripe Payments</h1>
+        <h1 className="text-2xl font-semibold text-center text-gray-800">M-Pesa Payments</h1>
         <h2 className="text-3xl font-bold text-center text-gray-900">Global Work Ways</h2>
         
         <div className="bg-white rounded-xl shadow-md p-8">
-          {/* Apple Pay / Google Pay Button */}
-          <button className="w-full flex items-center justify-center bg-black text-white rounded-md p-3 font-semibold hover:bg-gray-800">
+          {/* Apple Pay / Google Pay Button (Optional - can be removed if not using) */}
+          <button 
+            className="w-full flex items-center justify-center bg-black text-white rounded-md p-3 font-semibold hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled
+            title="Apple Pay coming soon"
+          >
             <ApplePayIcon />
             <span className="ml-2">Pay</span>
           </button>
@@ -70,71 +101,132 @@ const handleMpesaSubmit = async (event) => {
           {/* Divider */}
           <div className="flex items-center my-6">
             <hr className="flex-grow border-t border-gray-300" />
-            <span className="px-4 text-gray-500">or</span>
+            <span className="px-4 text-gray-500">Pay with M-Pesa</span>
             <hr className="flex-grow border-t border-gray-300" />
           </div>
 
+          {/* Success/Error Message */}
+          {message && (
+            <div 
+              className={`mb-6 p-4 rounded-lg ${
+                messageType === 'success' 
+                  ? 'bg-green-50 border border-green-200 text-green-800' 
+                  : 'bg-red-50 border border-red-200 text-red-800'
+              }`}
+            >
+              <p className="text-sm font-medium">{message}</p>
+            </div>
+          )}
+
           {/* M-Pesa Form */}
-          <div className="border border-gray-300 rounded-lg p-4 transition-colors duration-200 hover:border-indigo-500 hover:shadow-md mb-8">
+          <div className="border border-gray-300 rounded-lg p-6 transition-colors duration-200 hover:border-green-500 hover:shadow-md">
             <form onSubmit={handleMpesaSubmit} className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">M-Pesa Global</h3>
-              <div>
-                <label htmlFor="mpesaName" className="block text-sm font-medium text-gray-700">Full Name</label>
-                <input type="text" id="mpesaName" value={mpesaName} onChange={(e) => setMpesaName(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" required />
+              <div className="flex items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">M-Pesa Payment</h3>
+                <span className="ml-auto text-2xl">📱</span>
               </div>
+
               <div>
-                <label htmlFor="mpesaEmail" className="block text-sm font-medium text-gray-700">Email</label>
-                <input type="email" id="mpesaEmail" value={mpesaEmail} onChange={(e) => setMpesaEmail(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" required />
+                <label htmlFor="mpesaName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  id="mpesaName" 
+                  value={mpesaName} 
+                  onChange={(e) => setMpesaName(e.target.value)} 
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                  placeholder="John Doe"
+                  required 
+                  disabled={isLoading}
+                />
               </div>
+
               <div>
-                <label htmlFor="mpesaPhone" className="block text-sm font-medium text-gray-700">M-Pesa Phone Number</label>
-                <input type="tel" id="mpesaPhone" value={mpesaPhone} onChange={(e) => setMpesaPhone(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="254XXXXXXXXX" required />
-                <p className="mt-1 text-xs text-gray-500">Enter your M-Pesa registered phone number (format: 254000000000)</p>
+                <label htmlFor="mpesaEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="email" 
+                  id="mpesaEmail" 
+                  value={mpesaEmail} 
+                  onChange={(e) => setMpesaEmail(e.target.value)} 
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                  placeholder="john@example.com"
+                  required 
+                  disabled={isLoading}
+                />
               </div>
+
+              <div>
+                <label htmlFor="mpesaPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                  M-Pesa Phone Number <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="tel" 
+                  id="mpesaPhone" 
+                  value={mpesaPhone} 
+                  onChange={(e) => setMpesaPhone(e.target.value)} 
+                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+                  placeholder="254712345678 or 0712345678"
+                  required 
+                  disabled={isLoading}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Enter your M-Pesa registered phone number (format: 254XXXXXXXXX or 07XXXXXXXX)
+                </p>
+              </div>
+
+              {/* Payment Amount Display */}
+              <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Amount to Pay:</span>
+                  <span className="text-2xl font-bold text-green-600">${PAYMENT_AMOUNT}.00</span>
+                </div>
+              </div>
+
               <button
                 type="submit"
-                className="w-full px-4 py-2 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                disabled={isLoading}
+                className="w-full px-4 py-3 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
-                Pay $300.00 with M-Pesa
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  `Pay $${PAYMENT_AMOUNT}.00 with M-Pesa`
+                )}
               </button>
+
+              <p className="text-xs text-gray-500 text-center mt-4">
+                🔒 Secure payment powered by Safaricom M-Pesa
+              </p>
             </form>
           </div>
 
-          {/* Card Payment Form */}
-          <div className="border border-gray-300 rounded-lg p-4 transition-colors duration-200 hover:border-indigo-500 hover:shadow-md mb-8">
-            <h3 className="text-lg font-semibold text-gray-800">Card Payment</h3>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700">Card Information</label>
-                <input type="text" id="cardNumber" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="1234 1234 1234 1234" required />
-              </div>
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700">Expiry Date</label>
-                  <input type="text" id="expiryDate" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="MM/YY" required />
-                </div>
-                <div className="flex-1">
-                  <label htmlFor="cvc" className="block text-sm font-medium text-gray-700">CVC</label>
-                  <input type="text" id="cvc" value={cvc} onChange={(e) => setCvc(e.target.value)} className="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" placeholder="CVC" required />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          
-          {/* Final Submit Button */}
-          <div className="mt-8">
-            <p className="text-sm text-gray-600 mb-2">Global Payment</p>
-            <p className="text-xs text-gray-500 mb-4">Pay with Stripe (credit cards, bank transfers, etc.)</p>
-            <button
-              onClick={handleCardSubmit}
-              className="w-full px-4 py-3 font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Pay $300.00
-            </button>
+          {/* Information Box */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-semibold text-blue-800 mb-2">How to pay:</h4>
+            <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+              <li>Enter your details above</li>
+              <li>Click the "Pay" button</li>
+              <li>You'll receive an STK Push on your phone</li>
+              <li>Enter your M-Pesa PIN to complete payment</li>
+              <li>You'll receive a confirmation SMS from M-Pesa</li>
+            </ol>
           </div>
 
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-xs text-gray-500 mt-6">
+          Powered by M-Pesa • Secure Payment Gateway
+        </p>
       </div>
     </main>
   );
